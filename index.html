@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <title>Choroszcz Escape</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #111; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+        #cheerpjDisplay { width: 1000px; height: 750px; background-color: black; border: 2px solid #444; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+    </style>
+    <script src="https://cj3.leaningtech.com/3.0/cj3loader.js"></script>
+</head>
+<body>
+    <div id="cheerpjDisplay"></div>
+    <script>
+        async function start() {
+            await cheerpjInit();
+            cheerpjCreateDisplay(-1, -1, document.getElementById("cheerpjDisplay"));
+            await cheerpjRunMain("ChoroszczEscape", "/app/ChoroszczEscapeMobile.jar");
+        }
+        start();
+    </script>
+</body>
+</html>
