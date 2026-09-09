@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Choroszcz Escape — Wersja Mobilna 21:9</title>
+    <script src="https://cjrtnc.leaningtech.com/3.0/cj3loader.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        /* 21:9 Viewport (1916 x 821) */
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: calc(100vh * (1916 / 821));
+            max-height: calc(100vw * (821 / 1916));
+            aspect-ratio: 1916 / 821;
+            background-color: #000;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+        }
+
+        #cheerpjDisplay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #cheerpjDisplay canvas {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: fill !important;
+            display: block;
+        }
+
+        /* OVERLAY STEROWANIA DOTYKOWEGO */
+        #touchOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .touch-btn {
+            position: absolute;
+            pointer-events: auto;
+            touch-action: none;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.12s ease;
+            cursor: pointer;
+        }
+
+        .touch-btn:active, .touch-btn.active {
+            transform: scale(0.91);
+            filter: brightness(1.35);
+        }
+
+        /* TOP RIGHT: PAUZA & FULLSCREEN */
+        #topBar {
+            position: absolute;
+            top: 8px;
+            right: 14px;
+            display: flex;
+            gap: 10px;
+            z-index: 15;
+            pointer-events: auto;
+        }
+
+        .top-btn {
+            background: rgba(22, 18, 36, 0.82);
+            backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(140, 100, 220, 0.5);
+            border-radius: 18px;
+            padding: 6px 14px;
+            color: #eee;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .top-btn:active {
+            transform: scale(0.92);
+            background: rgba(140, 100, 220, 0.35);
+            border-color: #00e5ff;
+        }
+
+        /* LEWA STRONA: KRZYŻAK D-PAD */
+        #dpadContainer {
+            position: absolute;
+            left: 22px;
+            bottom: 22px;
+            width: 180px;
+            height: 180px;
+            pointer-events: auto;
+            touch-action: none;
+        }
+
+        .dpad-btn {
+            position: absolute;
+            width: 54px;
+            height: 54px;
+            background: rgba(20, 16, 32, 0.85);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(130, 90, 240, 0.45);
+            border-radius: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            color: #00e5ff;
+            text-shadow: 0 0 8px rgba(0, 229, 255, 0.7);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.15);
+        }
+
+        .dpad-btn.active, .dpad-btn:active {
+            background: rgba(140, 80, 255, 0.4);
+            border-color: #00e5ff;
+            box-shadow: 0 0 18px rgba(0, 229, 255, 0.8), inset 0 0 10px rgba(0, 229, 255, 0.5);
+            transform: scale(0.9);
+        }
+
+        #dpadUp    { top: 0; left: 63px; }
+        #dpadDown  { bottom: 0; left: 63px; }
+        #dpadLeft  { top: 63px; left: 0; }
+        #dpadRight { top: 63px; right: 0; }
+
+        #dpadCenter {
+            position: absolute;
+            top: 63px;
+            left: 63px;
+            width: 54px;
+            height: 54px;
+            background: rgba(15, 12, 25, 0.6);
+            border-radius: 12px;
+            border: 1px dashed rgba(100, 80, 160, 0.3);
+            pointer-events: none;
+        }
+
+        /* PRAWA STRONA: PRZYCISKI AKCJI I SKILLE */
+        #actionsContainer {
+            position: absolute;
+            right: 22px;
+            bottom: 20px;
+            width: 320px;
+            height: 200px;
+            pointer-events: none;
+        }
+
+        /* 3 SKILLE PIONOWO Z BOKU */
+        #skillsColumn {
+            position: absolute;
+            left: 10px;
+            bottom: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .skill-slot {
+            width: 54px;
+            height: 54px;
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        /* Zablokowany skill (szary ze znakiem zapytania) */
+        .skill-slot.locked {
+            background: rgba(28, 25, 38, 0.7);
+            backdrop-filter: blur(6px);
+            border: 1.5px dashed rgba(120, 115, 140, 0.45);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            opacity: 0.75;
+        }
+
+        .skill-slot.locked .skill-icon {
+            font-size: 20px;
+            font-weight: 900;
+            color: #88849c;
+            animation: pulseQuestion 2.2s infinite ease-in-out;
+        }
+
+        .skill-slot.locked .skill-text {
+            font-size: 8px;
+            font-weight: 700;
+            color: #6c6880;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 1px;
+        }
+
+        /* Odblokowane skille */
+        .skill-slot.unlocked {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .skill-slot.unlocked .skill-icon {
+            font-size: 20px;
+        }
+
+        .skill-slot.unlocked .skill-text {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 1px;
+        }
+
+        /* Skill: ODSKOK (Spacja) */
+        #btnSkillDash.unlocked {
+            background: rgba(10, 36, 28, 0.88);
+            border: 2px solid #00ffaa;
+            box-shadow: 0 0 16px rgba(0, 255, 170, 0.5), inset 0 0 8px rgba(0, 255, 170, 0.25);
+        }
+        #btnSkillDash.unlocked .skill-text { color: #aaffdd; }
+
+        /* Skill: BĄK (Klawisz 1) */
+        #btnSkillFart.unlocked {
+            background: rgba(30, 38, 10, 0.88);
+            border: 2px solid #aaff00;
+            box-shadow: 0 0 16px rgba(170, 255, 0, 0.5), inset 0 0 8px rgba(170, 255, 0, 0.25);
+        }
+        #btnSkillFart.unlocked .skill-text { color: #ddff99; }
+
+        /* Skill: KACZKA (Klawisz 4) */
+        #btnSkillDuck.unlocked {
+            background: rgba(40, 30, 8, 0.88);
+            border: 2px solid #ffbe00;
+            box-shadow: 0 0 16px rgba(255, 190, 0, 0.5), inset 0 0 8px rgba(255, 190, 0, 0.25);
+        }
+        #btnSkillDuck.unlocked .skill-text { color: #ffe699; }
+
+        @keyframes pulseQuestion {
+            0%, 100% { opacity: 0.5; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.08); color: #bbb5d8; }
+        }
+
+        /* DUŻY PRZYCISK: PARUJ (R) */
+        #btnParry {
+            position: absolute;
+            right: 104px;
+            bottom: 22px;
+            width: 78px;
+            height: 78px;
+            background: radial-gradient(circle at 35% 35%, rgba(0, 200, 255, 0.35) 0%, rgba(15, 25, 45, 0.9) 100%);
+            border: 2.5px solid #00e5ff;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.5), 0 6px 18px rgba(0, 0, 0, 0.7), inset 0 0 12px rgba(0, 229, 255, 0.3);
+            pointer-events: auto;
+        }
+
+        #btnParry .btn-icon {
+            font-size: 26px;
+        }
+
+        #btnParry .btn-label {
+            font-size: 11px;
+            font-weight: 900;
+            color: #b3f3ff;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+        }
+
+        #btnParry .btn-sub {
+            font-size: 8px;
+            color: #70d8f0;
+            font-weight: 700;
+        }
+
+        /* NAJWIĘKSZY PRZYCISK: ATAK (ENTER) */
+        #btnAttack {
+            position: absolute;
+            right: 8px;
+            bottom: 12px;
+            width: 90px;
+            height: 90px;
+            background: radial-gradient(circle at 35% 35%, rgba(255, 40, 80, 0.45) 0%, rgba(45, 10, 20, 0.95) 100%);
+            border: 3px solid #ff2255;
+            border-radius: 50%;
+            box-shadow: 0 0 26px rgba(255, 34, 85, 0.65), 0 8px 22px rgba(0, 0, 0, 0.8), inset 0 0 16px rgba(255, 34, 85, 0.4);
+            pointer-events: auto;
+        }
+
+        #btnAttack .btn-icon {
+            font-size: 32px;
+        }
+
+        #btnAttack .btn-label {
+            font-size: 14px;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 34, 85, 0.9);
+        }
+
+        #btnAttack .btn-sub {
+            font-size: 9px;
+            color: #ff99aa;
+            font-weight: 700;
+        }
+
+        /* EKRAN ŁADOWANIA (LOADER) */
+        #loaderContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #181428 0%, #08060e 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .title {
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #ff2255;
+            text-shadow: 0 0 25px rgba(255, 34, 85, 0.7);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #a09cb5;
+            margin-bottom: 24px;
+            letter-spacing: 0.5px;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 34, 85, 0.2);
+            border-top-color: #ff2255;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            margin-bottom: 18px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #statusText {
+            font-size: 14px;
+            color: #ddd;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        #statusSub {
+            font-size: 12px;
+            color: #777;
+            margin-top: 6px;
+        }
+
+        /* OSTRZEŻENIE O PIONOWEJ ORIENTACJI */
+        #portraitNotice {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0d0b16;
+            z-index: 200;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+        }
+
+        @media (orientation: portrait) {
+            #portraitNotice { display: flex; }
+        }
+
+        .rotate-icon {
+            font-size: 56px;
+            margin-bottom: 18px;
+            animation: rotatePhone 2.5s infinite ease-in-out;
+        }
+
+        @keyframes rotatePhone {
+            0%, 10% { transform: rotate(0deg); }
+            45%, 55% { transform: rotate(-90deg); }
+            90%, 100% { transform: rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ostrzeżenie o obrocie ekranu -->
+    <div id="portraitNotice">
+        <div class="rotate-icon">📱 ➔ 🔄</div>
+        <h2 style="color: #ff2255; margin-bottom: 10px; font-size: 24px;">Obróć telefon poziomo</h2>
+        <p style="color: #bbb; max-width: 320px; line-height: 1.5; font-size: 14px;">
+            Gra <b>Choroszcz Escape</b> jest zoptymalizowana pod format panoramiczny <b>21:9</b>. Obróć ekran, aby cieszyć się pełnym widokiem i wygodnym sterowaniem!
+        </p>
+    </div>
+
+    <!-- Główny kontener gry (dokładne proporcje 21:9) -->
+    <div id="gameContainer">
+
+        <!-- Ekran wczytywania silnika -->
+        <div id="loaderContainer">
+            <div class="title">Choroszcz Escape</div>
+            <div class="subtitle">Wersja Mobilna (CheerpJ WebAssembly 21:9)</div>
+            <div class="spinner"></div>
+            <div id="statusText">Inicjalizacja silnika gry...</div>
+            <div id="statusSub">Optymalizacja zasobów pod ekran mobilny 21:9.</div>
+        </div>
+
+        <!-- Warstwa CheerpJ Java -->
+        <div id="cheerpjDisplay"></div>
+
+        <!-- Warstwa przycisków dotykowych -->
+        <div id="touchOverlay">
+            
+            <!-- Górny pasek: Pauza & Pełny ekran -->
+            <div id="topBar">
+                <button class="top-btn" id="btnPause" aria-label="Pauza">
+                    <span>⏸️</span> PAUZA
+                </button>
+                <button class="top-btn" id="btnFullscreen" aria-label="Pełny ekran">
+                    <span>⛶</span> EKRAN
+                </button>
+            </div>
+
+            <!-- D-PAD po lewej stronie -->
+            <div id="dpadContainer">
+                <div id="dpadCenter"></div>
+                <div class="touch-btn dpad-btn" id="dpadUp" data-key="87" data-char="w">▲</div>
+                <div class="touch-btn dpad-btn" id="dpadDown" data-key="83" data-char="s">▼</div>
+                <div class="touch-btn dpad-btn" id="dpadLeft" data-key="65" data-char="a">◀</div>
+                <div class="touch-btn dpad-btn" id="dpadRight" data-key="68" data-char="d">▶</div>
+            </div>
+
+            <!-- Cluster akcji po prawej stronie -->
+            <div id="actionsContainer">
+                
+                <!-- Kolumna 3 skilli (pionowo z boku) -->
+                <div id="skillsColumn">
+                    <!-- Skill 1: Odskok (Spacja / Shift) -->
+                    <div class="touch-btn skill-slot locked" id="btnSkillDash" data-key="32" data-char=" " title="Odskok">
+                        <div class="skill-icon">?</div>
+                        <div class="skill-text">???</div>
+                    </div>
+
+                    <!-- Skill 2: Bąk Boży (Klawisz 1) -->
+                    <div class="touch-btn skill-slot locked" id="btnSkillFart" data-key="49" data-char="1" title="Bąk Boży">
+                        <div class="skill-icon">?</div>
+                        <div class="skill-text">???</div>
+                    </div>
+
+                    <!-- Skill 3: Kaczka (Klawisz 4) -->
+                    <div class="touch-btn skill-slot locked" id="btnSkillDuck" data-key="52" data-char="4" title="Rzut Kaczką">
+                        <div class="skill-icon">?</div>
+                        <div class="skill-text">???</div>
+                    </div>
+                </div>
+
+                <!-- Duży przycisk: PARUJ (R) -->
+                <div class="touch-btn" id="btnParry" data-key="82" data-char="r">
+                    <div class="btn-icon">🛡️</div>
+                    <div class="btn-label">PARUJ</div>
+                    <div class="btn-sub">[ R ]</div>
+                </div>
+
+                <!-- Największy i najbardziej intuicyjny: ATAK (Enter) -->
+                <div class="touch-btn" id="btnAttack" data-key="10" data-char="Enter">
+                    <div class="btn-icon">⚔️</div>
+                    <div class="btn-label">ATAK</div>
+                    <div class="btn-sub">ENTER</div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // 1. Zabezpieczenie przed uruchomieniem z pliku file://
+        if (window.location.protocol === 'file:') {
+            document.body.innerHTML = `
+                <div style="max-width: 600px; padding: 24px; background: #22050b; border: 2px solid #ff2255; border-radius: 12px; color: #ffcccc; font-size: 15px; line-height: 1.6; text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 12px;">⚠️</div>
+                    <h2 style="color: #fff; margin-bottom: 12px;">Wymagany serwer HTTP</h2>
+                    <p>Otworzyłeś plik <code>index.html</code> bezpośrednio z dysku (<code>file://</code>). Przeglądarka blokuje WebAssembly z powodów bezpieczeństwa CORS.</p>
+                    <p style="margin-top: 10px; color: #aaffdd;">Uruchom lokalny serwer (np. <code>python3 -m http.server</code>) i wejdź przez <code>http://localhost:8000</code> lub wgraj paczkę na itch.io.</p>
+                </div>
+            `;
+            throw new Error("Lokalny protokół file:// nie jest obsługiwany przez CheerpJ.");
+        }
+
+        // 2. Automatyczne odblokowanie Web Audio
+        const unlockAudio = () => {
+            if (typeof AudioContext !== 'undefined') {
+                const audioCtxList = [window.__cheerpAudioContext, window.audioCtx];
+                audioCtxList.forEach(ctx => {
+                    if (ctx && ctx.state === 'suspended') ctx.resume();
+                });
+            }
+        };
+        window.addEventListener('click', unlockAudio, { passive: true });
+        window.addEventListener('touchstart', unlockAudio, { passive: true });
+
+        // 3. Wirtualne klawisze: wysyłanie do silnika Java i dispatchEvent
+        function sendKeyEvent(keyCode, char, isDown) {
+            if (navigator.vibrate && isDown) {
+                try { navigator.vibrate(12); } catch(e) {}
+            }
+
+            // 1. Wywołanie bezpośrednie przez cjCall do instancji Javy (jeśli dostępna)
+            try {
+                if (typeof cjCall === 'function') {
+                    if (isDown) {
+                        cjCall("ChoroszczEscape", "pressVirtualKey", keyCode).catch(() => {});
+                    } else {
+                        cjCall("ChoroszczEscape", "releaseVirtualKey", keyCode).catch(() => {});
+                    }
+                }
+            } catch (e) {}
+
+            // 2. Syntetyczny KeyboardEvent do canvas i okna
+            const type = isDown ? 'keydown' : 'keyup';
+            const evt = new KeyboardEvent(type, {
+                key: char,
+                code: (keyCode >= 65 && keyCode <= 90) ? 'Key' + String.fromCharCode(keyCode) : (keyCode === 32 ? 'Space' : (keyCode === 10 || keyCode === 13 ? 'Enter' : 'Key' + char)),
+                keyCode: keyCode,
+                which: keyCode,
+                bubbles: true,
+                cancelable: true
+            });
+
+            const canvas = document.querySelector("#cheerpjDisplay canvas");
+            if (canvas) canvas.dispatchEvent(evt);
+            document.dispatchEvent(evt);
+            window.dispatchEvent(evt);
+        }
+
+        // 4. Obsługa przycisków dotykowych z wielodotykiem (multi-touch)
+        function setupButton(element, keyCode, char) {
+            if (!element) return;
+
+            let isPressed = false;
+
+            const handleDown = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isPressed) {
+                    isPressed = true;
+                    element.classList.add('active');
+                    sendKeyEvent(keyCode, char, true);
+                }
+            };
+
+            const handleUp = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isPressed) {
+                    isPressed = false;
+                    element.classList.remove('active');
+                    sendKeyEvent(keyCode, char, false);
+                }
+            };
+
+            element.addEventListener('touchstart', handleDown, { passive: false });
+            element.addEventListener('touchend', handleUp, { passive: false });
+            element.addEventListener('touchcancel', handleUp, { passive: false });
+            element.addEventListener('mousedown', handleDown);
+            element.addEventListener('mouseup', handleUp);
+            element.addEventListener('mouseleave', handleUp);
+        }
+
+        // Rejestracja D-Pada
+        setupButton(document.getElementById('dpadUp'), 87, 'w');
+        setupButton(document.getElementById('dpadDown'), 83, 's');
+        setupButton(document.getElementById('dpadLeft'), 65, 'a');
+        setupButton(document.getElementById('dpadRight'), 68, 'd');
+
+        // Rejestracja Ataku i Parowania
+        setupButton(document.getElementById('btnAttack'), 10, 'Enter');
+        setupButton(document.getElementById('btnParry'), 82, 'r');
+
+        // Rejestracja Skilli
+        setupButton(document.getElementById('btnSkillDash'), 32, ' ');
+        setupButton(document.getElementById('btnSkillFart'), 49, '1');
+        setupButton(document.getElementById('btnSkillDuck'), 52, '4');
+
+        // Pauza (Escape)
+        const btnPause = document.getElementById('btnPause');
+        if (btnPause) {
+            btnPause.addEventListener('click', (e) => {
+                e.preventDefault();
+                sendKeyEvent(27, 'Escape', true);
+                setTimeout(() => sendKeyEvent(27, 'Escape', false), 100);
+            });
+        }
+
+        // Pełny ekran (Fullscreen Toggle)
+        const btnFullscreen = document.getElementById('btnFullscreen');
+        if (btnFullscreen) {
+            btnFullscreen.addEventListener('click', () => {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                    const docEl = document.documentElement;
+                    if (docEl.requestFullscreen) docEl.requestFullscreen().catch(() => {});
+                    else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                }
+            });
+        }
+
+        // 5. Dynamiczne odblokowywanie skilli (stan zablokowany '?' vs odblokowany)
+        let lastDash = false, lastFart = false, lastDuck = false;
+
+        function updateSkillButtons(hasDash, hasFart, hasDuck) {
+            // 1. ODSKOK (Spacja)
+            const elDash = document.getElementById('btnSkillDash');
+            if (elDash && hasDash !== lastDash) {
+                lastDash = hasDash;
+                if (hasDash) {
+                    elDash.classList.remove('locked');
+                    elDash.classList.add('unlocked');
+                    elDash.innerHTML = `
+                        <div class="skill-icon">💨</div>
+                        <div class="skill-text">ODSKOK</div>
+                    `;
+                } else {
+                    elDash.classList.remove('unlocked');
+                    elDash.classList.add('locked');
+                    elDash.innerHTML = `
+                        <div class="skill-icon">?</div>
+                        <div class="skill-text">???</div>
+                    `;
+                }
+            }
+
+            // 2. BĄK (Klawisz 1)
+            const elFart = document.getElementById('btnSkillFart');
+            if (elFart && hasFart !== lastFart) {
+                lastFart = hasFart;
+                if (hasFart) {
+                    elFart.classList.remove('locked');
+                    elFart.classList.add('unlocked');
+                    elFart.innerHTML = `
+                        <div class="skill-icon">☁️</div>
+                        <div class="skill-text">BĄK</div>
+                    `;
+                } else {
+                    elFart.classList.remove('unlocked');
+                    elFart.classList.add('locked');
+                    elFart.innerHTML = `
+                        <div class="skill-icon">?</div>
+                        <div class="skill-text">???</div>
+                    `;
+                }
+            }
+
+            // 3. KACZKA (Klawisz 4)
+            const elDuck = document.getElementById('btnSkillDuck');
+            if (elDuck && hasDuck !== lastDuck) {
+                lastDuck = hasDuck;
+                if (hasDuck) {
+                    elDuck.classList.remove('locked');
+                    elDuck.classList.add('unlocked');
+                    elDuck.innerHTML = `
+                        <div class="skill-icon">🦆</div>
+                        <div class="skill-text">KACZKA</div>
+                    `;
+                } else {
+                    elDuck.classList.remove('unlocked');
+                    elDuck.classList.add('locked');
+                    elDuck.innerHTML = `
+                        <div class="skill-icon">?</div>
+                        <div class="skill-text">???</div>
+                    `;
+                }
+            }
+        }
+
+        // Cykliczne sprawdzanie stanu skilli z Javy
+        setInterval(async () => {
+            try {
+                if (typeof cjCall === 'function') {
+                    const dash = await cjCall("ChoroszczEscape", "getHasDash");
+                    const fart = await cjCall("ChoroszczEscape", "getHasFart");
+                    const duck = await cjCall("ChoroszczEscape", "getHasDuck");
+                    updateSkillButtons(Boolean(dash), Boolean(fart), Boolean(duck));
+                }
+            } catch (ignored) {}
+        }, 400);
+
+        // 6. Inicjalizacja CheerpJ w trybie mobilnym 21:9
+        async function runGame() {
+            const statusText = document.getElementById("statusText");
+            const loader = document.getElementById("loaderContainer");
+
+            function updateStatus(text) {
+                if (statusText) statusText.innerText = text;
+            }
+
+            try {
+                updateStatus("Inicjalizacja środowiska WebAssembly...");
+                await cheerpjInit();
+
+                updateStatus("Tworzenie ekranu gry 21:9...");
+                cheerpjCreateDisplay(-1, -1, document.getElementById("cheerpjDisplay"));
+
+                updateStatus("Wczytywanie pakietu gry (ChoroszczEscape.jar)...");
+                let p = window.location.pathname || "";
+                let dir = p.substring(0, p.lastIndexOf('/'));
+                let pathsToTry = [];
+
+                if (dir && dir !== "" && dir !== "/") {
+                    pathsToTry.push("/app" + dir + "/ChoroszczEscape.jar");
+                }
+                pathsToTry.push("/app/ChoroszczEscape.jar");
+
+                let started = false;
+                let lastError = null;
+
+                for (const jarPath of pathsToTry) {
+                    try {
+                        console.log("[ChoroszczEscape Mobile] Próba startu JAR:", jarPath);
+                        // Uruchomienie z flagą --mobile dla natywnego 21:9 i górnego HUD-a
+                        await cheerpjRunMain("ChoroszczEscape", jarPath, "--mobile");
+                        started = true;
+                        break;
+                    } catch (err) {
+                        console.warn("[ChoroszczEscape Mobile] cheerpjRunMain nie powiodło się dla " + jarPath + ":", err);
+                        try {
+                            await cheerpjRunJar(jarPath);
+                            // Wymuszenie trybu mobilnego przez cjCall
+                            try { await cjCall("ChoroszczEscape", "setMobileMode", true); } catch(e) {}
+                            started = true;
+                            break;
+                        } catch (jarErr) {
+                            lastError = jarErr;
+                        }
+                    }
+                }
+
+                if (!started && lastError) throw lastError;
+
+                // Ukrycie ekranu ładowania po starcie
+                setTimeout(() => {
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.style.display = 'none', 450);
+                    }
+                }, 1200);
+
+            } catch (err) {
+                console.error("[ChoroszczEscape Mobile] Błąd uruchamiania:", err);
+                if (statusText) {
+                    statusText.innerHTML = `<span style="color: #ff4466;">Błąd uruchamiania: ${err.message || err}</span>`;
+                }
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runGame);
+        } else {
+            runGame();
+        }
+    </script>
+</body>
+</html>
